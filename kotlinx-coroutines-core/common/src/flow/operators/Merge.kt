@@ -46,7 +46,7 @@ public fun <T, R> Flow<T>.flatMapMerge(concurrency: Int = 16, bufferSize: Int = 
     require(concurrency >= 0) { "Expected non-negative concurrency level, but had $concurrency" }
     return scopedFlow {
         val semaphore = Channel<Unit>(concurrency)
-        val flatMap = SerializingFlatMapCollector(this@scopedFlow, bufferSize)
+        val flatMap = SerializingFlatMapCollector(it, bufferSize)
         collect { outerValue ->
             // TODO real semaphore (#94)
             semaphore.send(Unit) // Acquire concurrency permit
@@ -108,7 +108,7 @@ public fun <T> Flow<Flow<T>>.flattenMerge(concurrency: Int = 16, bufferSize: Int
  * produces `aa bb b_last`
  */
 @FlowPreview
-public fun <T, R> Flow<T>.switchMap(transform: suspend (value: T) -> Flow<R>): Flow<R> = scopedFlow {
+public fun <T, R> Flow<T>.switchMap(transform: suspend (value: T) -> Flow<R>): Flow<R> = scopedFlow { downstream ->
     var previousFlow: Job? = null
     collect { value ->
         // Linearize calls to emit as alternative to the channel. Bonus points for never-overlapping channels.
@@ -117,7 +117,7 @@ public fun <T, R> Flow<T>.switchMap(transform: suspend (value: T) -> Flow<R>): F
         // Undispatched to have better user experience in case of synchronous flows
         previousFlow = launch(start = CoroutineStart.UNDISPATCHED) {
             transform(value).collect { innerValue ->
-                emit(innerValue)
+                downstream.emit(innerValue)
             }
         }
     }
