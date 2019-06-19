@@ -1,10 +1,11 @@
 /*
- * Copyright 2016-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
+ * Copyright 2016-2019 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
  */
 
 package kotlinx.coroutines.internal
 
 import kotlinx.atomicfu.*
+import kotlinx.coroutines.*
 import java.util.*
 import java.util.concurrent.atomic.*
 
@@ -78,12 +79,17 @@ internal open class LockFreeTaskQueue<E : Any>(
  */
 internal class LockFreeTaskQueueCore<E : Any>(
     private val capacity: Int,
-    private val singleConsumer: Boolean // true when there is only a single consumer (slightly faster)
+    @JvmField // JvmField + public avoids generation of accessors
+    val singleConsumer: Boolean // true when there is only a single consumer (slightly faster)
 ) {
-    private val mask = capacity - 1
+    @JvmField // JvmField + public avoids generation of accessors
+    val mask = capacity - 1
+
+    @JvmField // JvmField + public avoids generation of accessors
+    val array = AtomicReferenceArray<Any?>(capacity)
+
     private val _next = atomic<Core<E>?>(null)
     private val _state = atomic(0L)
-    private val array = AtomicReferenceArray<Any?>(capacity)
 
     init {
         check(mask <= MAX_CAPACITY_MASK)
@@ -207,7 +213,7 @@ internal class LockFreeTaskQueueCore<E : Any>(
     private fun removeSlowPath(oldHead: Int, newHead: Int): Core<E>? {
         _state.loop { state ->
             state.withState { head, _ ->
-                check(head == oldHead) { "This queue can have only one consumer" }
+                assert { head == oldHead } // "This queue can have only one consumer"
                 if (state and FROZEN_MASK != 0L) {
                     // state was already frozen, so removed element was copied to next
                     return next() // continue to correct head in next

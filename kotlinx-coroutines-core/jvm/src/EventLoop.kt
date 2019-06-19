@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
+ * Copyright 2016-2019 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
  */
 
 package kotlinx.coroutines
@@ -27,8 +27,8 @@ internal fun delayToNanos(timeMillis: Long): Long = when {
 internal fun delayNanosToMillis(timeNanos: Long): Long =
     timeNanos / MS_TO_NS
 
-@Suppress("PrivatePropertyName")
-private val CLOSED_EMPTY = Symbol("CLOSED_EMPTY")
+@JvmField // JvmField + internal avoids generation of accessors
+internal val CLOSED_EMPTY = Symbol("CLOSED_EMPTY")
 
 private typealias Queue<T> = LockFreeTaskQueueCore<T>
 
@@ -68,13 +68,13 @@ internal abstract class EventLoopImplBase: EventLoop(), Delay {
             }
             val delayed = _delayed.value ?: return Long.MAX_VALUE
             val nextDelayedTask = delayed.peek() ?: return Long.MAX_VALUE
-            return (nextDelayedTask.nanoTime - timeSource.nanoTime()).coerceAtLeast(0)
+            return (nextDelayedTask.nanoTime - nanoTime()).coerceAtLeast(0)
         }
 
     private fun unpark() {
         val thread = thread
         if (Thread.currentThread() !== thread)
-            timeSource.unpark(thread)
+            unpark(thread)
     }
 
     override fun shutdown() {
@@ -99,7 +99,7 @@ internal abstract class EventLoopImplBase: EventLoop(), Delay {
         // queue all delayed tasks that are due to be executed
         val delayed = _delayed.value
         if (delayed != null && !delayed.isEmpty) {
-            val now = timeSource.nanoTime()
+            val now = nanoTime()
             while (true) {
                 // make sure that moving from delayed to queue removes from delayed only after it is added to queue
                 // to make sure that 'isEmpty' and `nextTime` that check both of them
@@ -251,7 +251,7 @@ internal abstract class EventLoopImplBase: EventLoop(), Delay {
         
         override var index: Int = -1
         
-        @JvmField val nanoTime: Long = timeSource.nanoTime() + delayToNanos(timeMillis)
+        @JvmField val nanoTime: Long = nanoTime() + delayToNanos(timeMillis)
 
         override fun compareTo(other: DelayedTask): Int {
             val dTime = nanoTime - other.nanoTime
@@ -313,7 +313,7 @@ internal class BlockingEventLoop(
     override val thread: Thread
 ) : EventLoopImplBase()
 
-internal actual fun createEventLoop(): EventLoop = BlockingEventLoop(Thread.currentThread())
+internal actual fun createEventLoop(): EventLoop = BlockingEventLoop(Thread.currentThread()!!)
 
 /**
  * Processes next event in the current thread's event loop.

@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
+ * Copyright 2016-2019 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
  */
 
 package kotlinx.coroutines.scheduling
@@ -7,7 +7,7 @@ package kotlinx.coroutines.scheduling
 import kotlinx.atomicfu.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.internal.*
-import java.io.Closeable
+import java.io.*
 import java.util.*
 import java.util.concurrent.*
 import java.util.concurrent.locks.*
@@ -45,12 +45,12 @@ import java.util.concurrent.locks.*
  *
  * ### Dynamic resizing and support of blocking tasks
  *
- * To support possibly blocking tasks [TaskMode] and CPU quota (via [cpuPermits]) are used.
- * To execute [TaskMode.NON_BLOCKING] tasks from the global queue or to steal tasks from other workers
- * the worker should have CPU permit. When a worker starts executing [TaskMode.PROBABLY_BLOCKING] task,
+ * To support possibly blocking tasks task mode and CPU quota (via [cpuPermits]) are used.
+ * To execute [TASK_NON_BLOCKING] tasks from the global queue or to steal tasks from other workers
+ * the worker should have CPU permit. When a worker starts executing [TASK_PROBABLY_BLOCKING] task,
  * it releases its CPU permit, giving a hint to a scheduler that additional thread should be created (or awaken)
- * if new [TaskMode.NON_BLOCKING] task will arrive. When a worker finishes executing blocking task, it executes
- * all tasks from its local queue (including [TaskMode.NON_BLOCKING]) and then parks as retired without polling
+ * if new [TASK_NON_BLOCKING] task will arrive. When a worker finishes executing blocking task, it executes
+ * all tasks from its local queue (including [TASK_NON_BLOCKING]) and then parks as retired without polling
  * global queue or trying to steal new tasks. Such approach may slightly limit scalability (allowing more than [corePoolSize] threads
  * to execute CPU-bound tasks at once), but in practice, it is not, significantly reducing context switches and tasks re-dispatching.
  *
@@ -216,7 +216,7 @@ internal class CoroutineScheduler(
      * State of worker threads.
      * [workers] is array of lazily created workers up to [maxPoolSize] workers.
      * [createdWorkers] is count of already created workers (worker with index lesser than [createdWorkers] exists).
-     * [blockingWorkers] is count of running workers which are executing [TaskMode.PROBABLY_BLOCKING] task.
+     * [blockingWorkers] is count of running workers which are executing [TASK_PROBABLY_BLOCKING] task.
      * All mutations of array's content are guarded by lock.
      *
      * **NOTE**: `workers[0]` is always `null` (never used, works as sentinel value), so
@@ -311,7 +311,7 @@ internal class CoroutineScheduler(
                     worker.join(timeout)
                 }
                 val state = worker.state
-                check(state === WorkerState.TERMINATED) { "Expected TERMINATED state, but found $state"}
+                assert { state === WorkerState.TERMINATED } // Expected TERMINATED state
                 worker.localQueue.offloadAllWork(globalQueue)
             }
         }
@@ -339,7 +339,7 @@ internal class CoroutineScheduler(
      * @param fair whether the task should be dispatched fairly (strict FIFO) or not (semi-FIFO)
      */
     fun dispatch(block: Runnable, taskContext: TaskContext = NonBlockingContext, fair: Boolean = false) {
-        timeSource.trackTask() // this is needed for virtual time support
+        trackTask() // this is needed for virtual time support
         val task = createTask(block, taskContext)
         // try to submit the task to the local queue and act depending on the result
         when (submitToLocalQueue(task, fair)) {
@@ -490,7 +490,7 @@ internal class CoroutineScheduler(
         if (worker.state === WorkerState.TERMINATED) return NOT_ADDED
 
         var result = ADDED
-        if (task.mode == TaskMode.NON_BLOCKING) {
+        if (task.mode == TASK_NON_BLOCKING) {
             /*
              * If the worker is currently executing blocking task and tries to dispatch non-blocking task, it's one the following reasons:
              * 1) Blocking worker is finishing its block and resumes non-blocking continuation
@@ -593,10 +593,10 @@ internal class CoroutineScheduler(
         try {
             task.run()
         } catch (e: Throwable) {
-            val thread = Thread.currentThread()
+            val thread = Thread.currentThread()!!
             thread.uncaughtExceptionHandler.uncaughtException(thread, e)
         } finally {
-            timeSource.unTrackTask()
+            unTrackTask()
         }
     }
 
@@ -664,9 +664,8 @@ internal class CoroutineScheduler(
          * This attempt may fail either because worker terminated itself or because someone else
          * claimed this worker (though this case is rare, because require very bad timings)
          */
-        fun tryForbidTermination(): Boolean {
-            val state = terminationState.value
-            return when (state) {
+        fun tryForbidTermination(): Boolean =
+            when (val state = terminationState.value) {
                 TERMINATED -> false // already terminated
                 FORBIDDEN -> false // already forbidden, someone else claimed this worker
                 ALLOWED -> terminationState.compareAndSet(
@@ -675,7 +674,6 @@ internal class CoroutineScheduler(
                 )
                 else -> error("Invalid terminationState = $state")
             }
-        }
 
         /**
          * Tries to acquire CPU token if worker doesn't have one
@@ -746,8 +744,9 @@ internal class CoroutineScheduler(
             tryReleaseCpu(WorkerState.TERMINATED)
         }
 
-        private fun beforeTask(taskMode: TaskMode, taskSubmissionTime: Long) {
-            if (taskMode != TaskMode.NON_BLOCKING) {
+        // taskMode == TASK_XXX
+        private fun beforeTask(taskMode: Int, taskSubmissionTime: Long) {
+            if (taskMode != TASK_NON_BLOCKING) {
                 /*
                  * We should release CPU *before* checking for CPU starvation,
                  * otherwise requestCpuWorker() will not count current thread as blocking
@@ -774,8 +773,9 @@ internal class CoroutineScheduler(
             }
         }
 
-        private fun afterTask(taskMode: TaskMode) {
-            if (taskMode != TaskMode.NON_BLOCKING) {
+        // taskMode == TASK_XXX
+        private fun afterTask(taskMode: Int) {
+            if (taskMode != TASK_NON_BLOCKING) {
                 decrementBlockingWorkers()
                 val currentState = state
                 // Shutdown sequence of blocking dispatcher
@@ -915,7 +915,7 @@ internal class CoroutineScheduler(
          * Returns `true` if there is no blocking tasks in the queue.
          */
         private fun blockingQuiescence(): Boolean {
-            globalQueue.removeFirstWithModeOrNull(TaskMode.PROBABLY_BLOCKING)?.let {
+            globalQueue.removeFirstWithModeOrNull(TASK_PROBABLY_BLOCKING)?.let {
                 localQueue.add(it, globalQueue)
                 return false
             }
@@ -923,11 +923,12 @@ internal class CoroutineScheduler(
         }
 
         // It is invoked by this worker when it finds a task
-        private fun idleReset(mode: TaskMode) {
+        // taskMode == TASK_XXX
+        private fun idleReset(mode: Int) {
             terminationDeadline = 0L // reset deadline for termination
             lastStealIndex = 0 // reset steal index (next time try random)
             if (state == WorkerState.PARKING) {
-                assert(mode == TaskMode.PROBABLY_BLOCKING)
+                assert(mode == TASK_PROBABLY_BLOCKING)
                 state = WorkerState.BLOCKING
                 parkTimeNs = MIN_PARK_TIME_NS
             }
@@ -950,7 +951,7 @@ internal class CoroutineScheduler(
              * 2) It helps with rare race when external submitter sends depending blocking tasks
              *    one by one and one of the requested workers may miss CPU token
              */
-            return localQueue.poll() ?: globalQueue.removeFirstWithModeOrNull(TaskMode.PROBABLY_BLOCKING)
+            return localQueue.poll() ?: globalQueue.removeFirstWithModeOrNull(TASK_PROBABLY_BLOCKING)
         }
 
         private fun findTaskWithCpuPermit(): Task? {
@@ -965,7 +966,7 @@ internal class CoroutineScheduler(
              * otherwise current thread may already have blocking task in its local queue.
              */
             val globalFirst = nextInt(2 * corePoolSize) == 0
-            if (globalFirst) globalQueue.removeFirstWithModeOrNull(TaskMode.NON_BLOCKING)?.let { return it }
+            if (globalFirst) globalQueue.removeFirstWithModeOrNull(TASK_NON_BLOCKING)?.let { return it }
             localQueue.poll()?.let { return it }
             if (!globalFirst) globalQueue.removeFirstOrNull()?.let { return it }
             return trySteal()
@@ -994,12 +995,12 @@ internal class CoroutineScheduler(
 
     enum class WorkerState {
         /**
-         * Has CPU token and either executes [TaskMode.NON_BLOCKING] task or tries to steal one
+         * Has CPU token and either executes [TASK_NON_BLOCKING] task or tries to steal one
          */
         CPU_ACQUIRED,
 
         /**
-         * Executing task with [TaskMode.PROBABLY_BLOCKING].
+         * Executing task with [TASK_PROBABLY_BLOCKING].
          */
         BLOCKING,
 

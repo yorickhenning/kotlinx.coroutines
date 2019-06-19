@@ -4,11 +4,15 @@ public abstract class kotlinx/coroutines/AbstractCoroutine : kotlinx/coroutines/
 	public synthetic fun <init> (Lkotlin/coroutines/CoroutineContext;ZILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun getContext ()Lkotlin/coroutines/CoroutineContext;
 	public fun getCoroutineContext ()Lkotlin/coroutines/CoroutineContext;
+	public fun getDefaultResumeMode ()I
+	public final fun handleOnCompletionException (Ljava/lang/Throwable;)V
 	public fun isActive ()Z
+	public fun nameString ()Ljava/lang/String;
 	protected fun onCancelled (Ljava/lang/Throwable;Z)V
 	protected fun onCompleted (Ljava/lang/Object;)V
 	protected final fun onCompletionInternal (Ljava/lang/Object;)V
 	protected fun onStart ()V
+	public final fun onStartInternal ()V
 	public final fun resumeWith (Ljava/lang/Object;)V
 	public final fun start (Lkotlinx/coroutines/CoroutineStart;Ljava/lang/Object;Lkotlin/jvm/functions/Function2;)V
 	public final fun start (Lkotlinx/coroutines/CoroutineStart;Lkotlin/jvm/functions/Function1;)V
@@ -55,12 +59,15 @@ public final class kotlinx/coroutines/CancellableContinuation$DefaultImpls {
 public class kotlinx/coroutines/CancellableContinuationImpl : kotlin/coroutines/jvm/internal/CoroutineStackFrame, kotlinx/coroutines/CancellableContinuation {
 	public fun <init> (Lkotlin/coroutines/Continuation;I)V
 	public fun cancel (Ljava/lang/Throwable;)Z
+	public fun cancelResult (Ljava/lang/Object;Ljava/lang/Throwable;)V
 	public fun completeResume (Ljava/lang/Object;)V
 	public fun getCallerFrame ()Lkotlin/coroutines/jvm/internal/CoroutineStackFrame;
 	public fun getContext ()Lkotlin/coroutines/CoroutineContext;
 	public fun getContinuationCancellationCause (Lkotlinx/coroutines/Job;)Ljava/lang/Throwable;
+	public final fun getDelegate ()Lkotlin/coroutines/Continuation;
 	public final fun getResult ()Ljava/lang/Object;
 	public fun getStackTraceElement ()Ljava/lang/StackTraceElement;
+	public fun getSuccessfulResult (Ljava/lang/Object;)Ljava/lang/Object;
 	public synthetic fun initCancellability ()V
 	public fun invokeOnCancellation (Lkotlin/jvm/functions/Function1;)V
 	public fun isActive ()Z
@@ -71,6 +78,7 @@ public class kotlinx/coroutines/CancellableContinuationImpl : kotlin/coroutines/
 	public fun resumeUndispatched (Lkotlinx/coroutines/CoroutineDispatcher;Ljava/lang/Object;)V
 	public fun resumeUndispatchedWithException (Lkotlinx/coroutines/CoroutineDispatcher;Ljava/lang/Throwable;)V
 	public fun resumeWith (Ljava/lang/Object;)V
+	public fun takeState ()Ljava/lang/Object;
 	public fun toString ()Ljava/lang/String;
 	public fun tryResume (Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
 	public fun tryResumeWithException (Ljava/lang/Throwable;)Ljava/lang/Object;
@@ -380,6 +388,7 @@ public class kotlinx/coroutines/JobSupport : kotlinx/coroutines/ChildJob, kotlin
 	public synthetic fun cancel (Ljava/lang/Throwable;)Z
 	public fun cancel (Ljava/util/concurrent/CancellationException;)V
 	public final fun cancelCoroutine (Ljava/lang/Throwable;)Z
+	public final fun cancelImpl (Ljava/lang/Object;)Z
 	public fun cancelInternal (Ljava/lang/Throwable;)Z
 	public fun childCancelled (Ljava/lang/Throwable;)Z
 	public fun fold (Ljava/lang/Object;Lkotlin/jvm/functions/Function2;)Ljava/lang/Object;
@@ -390,9 +399,14 @@ public class kotlinx/coroutines/JobSupport : kotlinx/coroutines/ChildJob, kotlin
 	protected final fun getCompletionCause ()Ljava/lang/Throwable;
 	protected final fun getCompletionCauseHandled ()Z
 	public final fun getCompletionExceptionOrNull ()Ljava/lang/Throwable;
+	public fun getHandlesException ()Z
 	public final fun getKey ()Lkotlin/coroutines/CoroutineContext$Key;
+	public fun getOnCancelComplete ()Z
 	public final fun getOnJoin ()Lkotlinx/coroutines/selects/SelectClause0;
+	public final fun getState ()Ljava/lang/Object;
 	protected fun handleJobException (Ljava/lang/Throwable;)Z
+	public fun handleOnCompletionException (Ljava/lang/Throwable;)V
+	public final fun initParentJobInternal (Lkotlinx/coroutines/Job;)V
 	public final fun invokeOnCompletion (Lkotlin/jvm/functions/Function1;)Lkotlinx/coroutines/DisposableHandle;
 	public final fun invokeOnCompletion (ZZLkotlin/jvm/functions/Function1;)Lkotlinx/coroutines/DisposableHandle;
 	public fun isActive ()Z
@@ -401,9 +415,12 @@ public class kotlinx/coroutines/JobSupport : kotlinx/coroutines/ChildJob, kotlin
 	public final fun isCompletedExceptionally ()Z
 	protected fun isScopedCoroutine ()Z
 	public final fun join (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun makeCompletingOnce (Ljava/lang/Object;I)Z
 	public fun minusKey (Lkotlin/coroutines/CoroutineContext$Key;)Lkotlin/coroutines/CoroutineContext;
+	public fun nameString ()Ljava/lang/String;
 	protected fun onCancelling (Ljava/lang/Throwable;)V
 	protected fun onCompletionInternal (Ljava/lang/Object;)V
+	public fun onStartInternal ()V
 	public final fun parentCancelled (Lkotlinx/coroutines/ParentJob;)V
 	public fun plus (Lkotlin/coroutines/CoroutineContext;)Lkotlin/coroutines/CoroutineContext;
 	public fun plus (Lkotlinx/coroutines/Job;)Lkotlinx/coroutines/Job;

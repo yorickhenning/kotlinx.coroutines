@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
+ * Copyright 2016-2019 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
  */
 
 package kotlinx.coroutines
@@ -8,9 +8,9 @@ import kotlinx.coroutines.internal.*
 import kotlin.coroutines.*
 import kotlin.jvm.*
 
-@Suppress("PrivatePropertyName")
 @SharedImmutable
-private val UNDEFINED = Symbol("UNDEFINED")
+@JvmField // JvmField + internal avoids generation of accessors
+internal val UNKNOWN = Symbol("UNDEFINED")
 
 /**
  * Executes given [block] as part of current event loop, updating current continuation
@@ -79,7 +79,7 @@ internal class DispatchedContinuation<in T>(
 ) : DispatchedTask<T>(MODE_ATOMIC_DEFAULT), CoroutineStackFrame, Continuation<T> by continuation {
     @JvmField
     @Suppress("PropertyName")
-    internal var _state: Any? = UNDEFINED
+    internal var _state: Any? = UNKNOWN
     override val callerFrame: CoroutineStackFrame? = continuation as? CoroutineStackFrame
     override fun getStackTraceElement(): StackTraceElement? = null
     @JvmField // pre-cached value to avoid ctx.fold on every resumption
@@ -87,8 +87,8 @@ internal class DispatchedContinuation<in T>(
 
     override fun takeState(): Any? {
         val state = _state
-        check(state !== UNDEFINED) // fail-fast if repeatedly invoked
-        _state = UNDEFINED
+        assert { state !== UNKNOWN } // fail-fast if repeatedly invoked
+        _state = UNKNOWN
         return state
     }
 
@@ -203,17 +203,17 @@ internal fun <T> Continuation<T>.resumeDirectWithException(exception: Throwable)
 internal abstract class DispatchedTask<in T>(
     @JvmField public var resumeMode: Int
 ) : SchedulerTask() {
-    internal abstract val delegate: Continuation<T>
+    abstract val delegate: Continuation<T>
 
-    internal abstract fun takeState(): Any?
+    abstract fun takeState(): Any?
 
-    internal open fun cancelResult(state: Any?, cause: Throwable) {}
+    open fun cancelResult(state: Any?, cause: Throwable) {}
 
     @Suppress("UNCHECKED_CAST")
-    internal open fun <T> getSuccessfulResult(state: Any?): T =
+    open fun <T> getSuccessfulResult(state: Any?): T =
         state as T
 
-    internal fun getExceptionalResult(state: Any?): Throwable? =
+    fun getExceptionalResult(state: Any?): Throwable? =
         (state as? CompletedExceptionally)?.cause
 
     public final override fun run() {
@@ -268,7 +268,7 @@ internal abstract class DispatchedTask<in T>(
      * Fatal exception handling can be intercepted with [CoroutineExceptionHandler] element in the context of
      * a failed coroutine, but such exceptions should be reported anyway.
      */
-    internal fun handleFatalException(exception: Throwable?, finallyException: Throwable?) {
+    fun handleFatalException(exception: Throwable?, finallyException: Throwable?) {
         if (exception === null && finallyException === null) return
         if (exception !== null && finallyException !== null) {
             exception.addSuppressedThrowable(finallyException)

@@ -1,10 +1,12 @@
 /*
- * Copyright 2016-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
+ * Copyright 2016-2019 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
  */
 
 package kotlinx.coroutines.internal
 
-import kotlinx.atomicfu.atomic
+import kotlinx.atomicfu.*
+import kotlinx.coroutines.*
+import kotlin.jvm.*
 
 /**
  * The most abstract operation that can be in process. Other threads observing an instance of this
@@ -21,7 +23,8 @@ public abstract class OpDescriptor {
 }
 
 @SharedImmutable
-private val NO_DECISION: Any = Symbol("NO_DECISION")
+@JvmField // JvmField + internal avoids generation of accessors
+internal val NO_DECISION: Any = Symbol("NO_DECISION")
 
 /**
  * Descriptor for multi-word atomic operation.
@@ -40,7 +43,7 @@ public abstract class AtomicOp<in T> : OpDescriptor() {
     val isDecided: Boolean get() = _consensus.value !== NO_DECISION
 
     fun tryDecide(decision: Any?): Boolean {
-        check(decision !== NO_DECISION)
+        assert { decision !== NO_DECISION }
         return _consensus.compareAndSet(NO_DECISION, decision)
     }
 

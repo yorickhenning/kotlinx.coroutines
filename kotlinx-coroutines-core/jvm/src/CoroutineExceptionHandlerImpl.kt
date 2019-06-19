@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
+ * Copyright 2016-2019 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
  */
 
 package kotlinx.coroutines
@@ -30,12 +30,12 @@ internal actual fun handleCoroutineExceptionImpl(context: CoroutineContext, exce
             handler.handleException(context, exception)
         } catch (t: Throwable) {
             // Use thread's handler if custom handler failed to handle exception
-            val currentThread = Thread.currentThread()
+            val currentThread = Thread.currentThread()!!
             currentThread.uncaughtExceptionHandler.uncaughtException(currentThread, handlerException(exception, t))
         }
     }
 
     // use thread's handler
-    val currentThread = Thread.currentThread()
+    val currentThread = Thread.currentThread()!!
     currentThread.uncaughtExceptionHandler.uncaughtException(currentThread, exception)
 }

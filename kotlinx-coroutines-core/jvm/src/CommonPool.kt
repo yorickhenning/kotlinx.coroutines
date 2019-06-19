@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
+ * Copyright 2016-2019 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
  */
 
 package kotlinx.coroutines
@@ -76,7 +76,7 @@ internal object CommonPool : ExecutorCoroutineDispatcher() {
     /**
      * Checks that this ForkJoinPool's parallelism is at least one to avoid pathological bugs.
      */
-    internal fun isGoodCommonPool(fjpClass: Class<*>, executor: ExecutorService): Boolean {
+    fun isGoodCommonPool(fjpClass: Class<*>, executor: ExecutorService): Boolean {
         // We cannot use getParallelism, since it lies to us (always returns at least 1)
         // So we submit a task and check that getPoolSize is at least one after that
         // A broken FJP (that is configured for 0 parallelism) would not execute the task and
@@ -100,9 +100,9 @@ internal object CommonPool : ExecutorCoroutineDispatcher() {
 
     override fun dispatch(context: CoroutineContext, block: Runnable) {
         try {
-            (pool ?: getOrCreatePoolSync()).execute(timeSource.wrapTask(block))
+            (pool ?: getOrCreatePoolSync()).execute(wrapTask(block))
         } catch (e: RejectedExecutionException) {
-            timeSource.unTrackTask()
+            unTrackTask()
             DefaultExecutor.enqueue(block)
         }
     }

@@ -7,16 +7,16 @@ package kotlinx.coroutines.scheduling
 import kotlinx.coroutines.TestBase
 import org.junit.Test
 import java.lang.Runnable
-import java.util.concurrent.*
 import java.util.concurrent.CountDownLatch
 import kotlin.coroutines.*
 
 class CoroutineSchedulerTest : TestBase() {
+    private val modes = listOf(TASK_NON_BLOCKING, TASK_PROBABLY_BLOCKING)
 
     @Test
     fun testModesExternalSubmission() { // Smoke
         CoroutineScheduler(1, 1).use {
-            for (mode in TaskMode.values()) {
+            for (mode in modes) {
                 val latch = CountDownLatch(1)
                 it.dispatch(Runnable {
                     latch.countDown()
@@ -30,9 +30,9 @@ class CoroutineSchedulerTest : TestBase() {
     @Test
     fun testModesInternalSubmission() { // Smoke
         CoroutineScheduler(2, 2).use {
-            val latch = CountDownLatch(TaskMode.values().size)
+            val latch = CountDownLatch(modes.size)
             it.dispatch(Runnable {
-                for (mode in TaskMode.values()) {
+                for (mode in modes) {
                     it.dispatch(Runnable {
                         latch.countDown()
                     }, TaskContextImpl(mode))
@@ -144,7 +144,7 @@ class CoroutineSchedulerTest : TestBase() {
         }
     }
 
-    private class TaskContextImpl(override val taskMode: TaskMode) : TaskContext {
+    private class TaskContextImpl(override val taskMode: Int) : TaskContext {
         override fun afterTask() {}
     }
 }

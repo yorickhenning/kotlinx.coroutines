@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
+ * Copyright 2016-2019 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
  */
 @file:Suppress("DEPRECATION_ERROR")
 
@@ -71,7 +71,7 @@ public abstract class AbstractCoroutine<in T>(
      */
     protected open fun onStart() {}
 
-    internal final override fun onStartInternal() {
+    final override fun onStartInternal() {
         onStart()
     }
 
@@ -102,7 +102,7 @@ public abstract class AbstractCoroutine<in T>(
             onCompleted(state as T)
     }
 
-    internal open val defaultResumeMode: Int get() = MODE_ATOMIC_DEFAULT
+    open val defaultResumeMode: Int get() = MODE_ATOMIC_DEFAULT
 
     /**
      * Completes execution of this with coroutine with the specified result.
@@ -111,11 +111,11 @@ public abstract class AbstractCoroutine<in T>(
         makeCompletingOnce(result.toState(), defaultResumeMode)
     }
 
-    internal final override fun handleOnCompletionException(exception: Throwable) {
+    final override fun handleOnCompletionException(exception: Throwable) {
         handleCoroutineException(context, exception)
     }
 
-    internal override fun nameString(): String {
+    override fun nameString(): String {
         val coroutineName = context.coroutineName ?: return super.nameString()
         return "\"$coroutineName\":${super.nameString()}"
     }
