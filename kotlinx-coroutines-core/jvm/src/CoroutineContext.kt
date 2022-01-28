@@ -9,17 +9,51 @@ import kotlin.coroutines.*
 import kotlin.coroutines.jvm.internal.CoroutineStackFrame
 
 /**
- * Creates context for the new coroutine. It installs [Dispatchers.Default] when no other dispatcher nor
- * [ContinuationInterceptor] is specified, and adds optional support for debugging facilities (when turned on).
+ * Creates a new [CoroutineContext] for a new coroutine constructed in [this] [CoroutineScope].
  *
- * See [DEBUG_PROPERTY_NAME] for description of debugging facilities on JVM.
+ * When a [CoroutineStartInterceptor] is present in [this] [CoroutineScope],]
+ * [newCoroutineContext] calls it to construct the new context.
+ *
+ * Otherwise, it uses `this.coroutineContext + context` to create the new context.
+ *
+ * Before returning the new context, [newCoroutineContext] adds [Dispatchers.Default] to if no
+ * [ContinuationInterceptor] was present in either [this] scope's [CoroutineContext] or in
+ * [context].
+ *
+ * [newCoroutineContext] also adds debugging facilities to the returned context when debug features
+ * are enabled.
  */
 @ExperimentalCoroutinesApi
-public actual fun CoroutineScope.newCoroutineContext(context: CoroutineContext): CoroutineContext {
-    val combined = coroutineContext.foldCopiesForChildCoroutine() + context
-    val debug = if (DEBUG) combined + CoroutineId(COROUTINE_ID.incrementAndGet()) else combined
-    return if (combined !== Dispatchers.Default && combined[ContinuationInterceptor] == null)
-        debug + Dispatchers.Default else debug
+public actual fun CoroutineScope.newCoroutineContext(context: CoroutineContext): CoroutineContext =
+    newCoroutineContext(coroutineContext, context)
+
+/**
+ * An overload of [CoroutineScope.newCoroutineContext] that accepts both the calling context and
+ * the context overlay as plain function parameters. This saves using `GlobalScope` or allocating
+ * a new anonymous `CoroutineScope` when `runBlocking {}` constructs a coroutine.
+ */
+@ExperimentalCoroutinesApi
+public fun newCoroutineContext(
+    callingContext: CoroutineContext,
+    addedContext: CoroutineContext
+): CoroutineContext {
+    val interceptor = callingContext[CoroutineStartInterceptor]
+
+    val childContext: CoroutineContext =
+        if (interceptor != null) {
+            interceptor.interceptContext(
+                callingContext = callingContext.foldCopiesForChildCoroutine(),
+                addedContext = addedContext
+            )
+        } else {
+            // Default context inheritance: fold left.
+            callingContext.foldCopiesForChildCoroutine() + addedContext
+        }
+
+    val withDebug = if (DEBUG) childContext + CoroutineId(COROUTINE_ID.incrementAndGet()) else childContext
+
+    return if (childContext !== Dispatchers.Default && childContext[ContinuationInterceptor] == null)
+        withDebug + Dispatchers.Default else withDebug
 }
 
 /**
