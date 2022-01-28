@@ -32,7 +32,7 @@ import kotlin.coroutines.*
  * the specified dispatcher while the current thread is blocked. If the specified dispatcher is an event loop of another `runBlocking`,
  * then this invocation uses the outer event loop.
  *
- * If [context] does not contain a [CoroutineDispatcher], [runBlocking] will include add an event
+ * If [context] does not contain a [CoroutineDispatcher], [runBlocking] will add an event
  * loop [CoroutineDispatcher] to the [CoroutineContext], and execute continuations using the
  * blocked thread until [block] returns.
  *
@@ -57,7 +57,6 @@ public actual fun <T> runBlocking(context: CoroutineContext, block: suspend Coro
     }
     val currentThread = Thread.currentThread()
     val continuationInterceptor = context[ContinuationInterceptor]
-    val coroutineStartInterceptor = context[CoroutineStartInterceptor]
     val eventLoop: EventLoop?
     val newContext: CoroutineContext
     if (continuationInterceptor == null) {
